@@ -1,12 +1,749 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Document</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>心灵守护 · 危机干预管理与智能辅助系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        body { background: linear-gradient(135deg, #eef2f7 0%, #d9e2ec 100%); font-family: 'Inter', system-ui, sans-serif; }
+        .risk-level-1 { background-color: #fee2e2; border-left: 4px solid #dc2626; }
+        .risk-level-2 { background-color: #ffedd5; border-left: 4px solid #f97316; }
+        .risk-level-3 { background-color: #fef9c3; border-left: 4px solid #eab308; }
+        .risk-closed { background-color: #e6f7e6; border-left: 4px solid #22c55e; }
+        .btn-primary { background-color: #2c6e9e; transition: 0.2s; }
+        .btn-primary:hover { background-color: #1f4e72; transform: translateY(-1px); }
+        .phq9-item { background: #f9fafb; border-radius: 12px; padding: 6px 10px; margin-bottom: 6px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+        .phq9-item span { font-size: 0.85rem; flex: 1; }
+        .phq9-item select { width: 80px; border-radius: 6px; border: 1px solid #cbd5e1; padding: 4px; }
+        .reminder-badge { background-color: #ef4444; color: white; border-radius: 9999px; padding: 2px 8px; font-size: 0.7rem; margin-left: 8px; animation: pulse 1.5s infinite; cursor: pointer; }
+        @keyframes pulse { 0% { opacity: 0.6; } 100% { opacity: 1; } }
+        .chart-switch-btn { cursor: pointer; transition: 0.2s; padding: 6px 12px; border-radius: 8px 8px 0 0; margin-right: 4px; }
+        .chart-tab-active { background-color: #3b82f6 !important; color: white !important; border-bottom: 2px solid #1e3a8a; }
+        .stats-card { cursor: pointer; transition: all 0.2s ease; background: white; border-radius: 1rem; box-shadow: 0 4px 6px -2px rgba(0,0,0,0.05); }
+        .stats-card:hover { transform: translateY(-4px); box-shadow: 0 12px 20px -12px rgba(0, 0, 0, 0.15); background: #fef9e3; }
+        .tab-btn { transition: all 0.2s; border-radius: 0.5rem 0.5rem 0 0; margin: 0 2px; }
+        .tab-btn:hover { background: #e2e8f0; }
+        .info-card { background: linear-gradient(120deg, #f8fafc, #f1f5f9); border-radius: 1rem; border: 1px solid #e2e8f0; }
+        .analysis-card-custom { background: #fffbeb; border-left: 6px solid #f59e0b; border-radius: 1rem; }
+        .guidance-card { background: #eff6ff; border-left: 6px solid #3b82f6; border-radius: 1rem; }
+        .advice-card { background: #ecfdf5; border-left: 6px solid #10b981; border-radius: 1rem; }
+        .ai-thinking { background: #f3e8ff; border-left: 6px solid #a855f7; font-style: italic; padding: 12px; border-radius: 1rem; margin-bottom: 16px; }
+        .login-container { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .card-glass { background: rgba(255,255,255,0.85); backdrop-filter: blur(10px); border-radius: 2rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); }
+        .logout-btn { position: fixed; top: 20px; right: 20px; z-index: 50; background: white; border-radius: 40px; padding: 6px 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; font-size: 0.85rem; }
+        .logout-btn:hover { background: #fee2e2; }
+    </style>
 </head>
 <body>
-    <h1>测试使用github pages个人博客网站</h1>
-    <h2>根据帅哥叶的要求，我看了一下怎么使用。</h2>
-    <h2>sadfasdfasdfasdf</h2>
+    <div id="logoutBtn" class="logout-btn hidden" onclick="logout()"><i class="fas fa-sign-out-alt mr-1"></i>退出登录</div>
+
+    <!-- 登录界面 -->
+    <div id="loginContainer" class="login-container">
+        <div class="card-glass w-full max-w-md p-8 m-4">
+            <div class="text-center mb-6">
+                <i class="fas fa-brain text-5xl text-indigo-600 mb-2"></i>
+                <h1 class="text-2xl font-bold text-slate-800">心灵守护</h1>
+                <p class="text-slate-500 text-sm">危机干预管理与智能辅助系统</p>
+            </div>
+            <div id="loginErrorMsg" class="hidden mb-4 p-2 bg-red-100 text-red-700 rounded-lg text-sm"></div>
+            <div class="space-y-4">
+                <div><label class="block text-sm font-medium text-slate-700">账号</label><input type="text" id="loginUsername" class="w-full border border-slate-300 rounded-xl p-2 mt-1" placeholder="请输入账号"></div>
+                <div><label class="block text-sm font-medium text-slate-700">密码</label><input type="password" id="loginPassword" class="w-full border border-slate-300 rounded-xl p-2 mt-1" placeholder="请输入密码"></div>
+                <button id="loginBtn" class="w-full btn-primary text-white py-2 rounded-xl font-medium">登录系统</button>
+                <div class="flex justify-between gap-2 mt-2">
+                    <button id="showRegisterBtn" class="text-sm text-indigo-600 hover:underline">注册账号</button>
+                    <button id="showChangePwdBtn" class="text-sm text-amber-600 hover:underline">修改密码</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 注册模态框 -->
+    <div id="registerModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold mb-3">注册新账号</h3>
+            <div><label>账号</label><input type="text" id="regUsername" class="w-full border rounded-xl p-2 mt-1"></div>
+            <div class="mt-2"><label>密码</label><input type="password" id="regPassword" class="w-full border rounded-xl p-2 mt-1"></div>
+            <div class="mt-2"><label>确认密码</label><input type="password" id="regConfirm" class="w-full border rounded-xl p-2 mt-1"></div>
+            <div id="regError" class="text-red-500 text-sm mt-2 hidden"></div>
+            <div class="flex justify-end gap-2 mt-4"><button id="closeRegisterBtn" class="px-4 py-2 border rounded-xl">取消</button><button id="confirmRegisterBtn" class="px-4 py-2 btn-primary text-white rounded-xl">注册</button></div>
+        </div>
+    </div>
+
+    <!-- 修改密码模态框 -->
+    <div id="changePwdModal" class="hidden fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6">
+            <h3 class="text-xl font-bold mb-3">修改密码</h3>
+            <div><label>账号</label><input type="text" id="chgUsername" class="w-full border rounded-xl p-2 mt-1"></div>
+            <div class="mt-2"><label>原密码</label><input type="password" id="chgOldPwd" class="w-full border rounded-xl p-2 mt-1"></div>
+            <div class="mt-2"><label>新密码</label><input type="password" id="chgNewPwd" class="w-full border rounded-xl p-2 mt-1"></div>
+            <div class="mt-2"><label>确认新密码</label><input type="password" id="chgConfirmPwd" class="w-full border rounded-xl p-2 mt-1"></div>
+            <div id="chgError" class="text-red-500 text-sm mt-2 hidden"></div>
+            <div class="flex justify-end gap-2 mt-4"><button id="closeChangePwdBtn" class="px-4 py-2 border rounded-xl">取消</button><button id="confirmChangePwdBtn" class="px-4 py-2 btn-primary text-white rounded-xl">确认修改</button></div>
+        </div>
+    </div>
+
+    <!-- 主系统界面（完整保留所有功能） -->
+    <div id="mainApp" class="hidden p-4 md:p-6">
+        <div class="max-w-7xl mx-auto">
+            <div class="flex flex-wrap justify-between items-center mb-6 pb-2 border-b border-white/30">
+                <div>
+                    <h1 class="text-2xl md:text-3xl font-bold tracking-tight text-slate-800">🧸 心灵守护 · 危机干预管理与智能辅助系统</h1>
+                    <p class="text-slate-600 text-sm mt-1">专业版 | AI模拟思考分析 | 支持多次干预及就诊记录 | 结案功能已恢复</p>
+                </div>
+                <div class="flex gap-2 mt-2 sm:mt-0">
+                    <button id="exportExcelBtn" class="px-4 py-2 bg-white/80 backdrop-blur-sm border border-slate-200 rounded-xl shadow-sm text-slate-700 text-sm font-medium hover:bg-white hover:shadow transition"><i class="fas fa-file-excel mr-1 text-green-600"></i>导出数据</button>
+                    <button id="refreshBtn" class="px-4 py-2 bg-white/80 backdrop-blur-sm rounded-xl text-slate-600 text-sm hover:bg-white shadow-sm"><i class="fas fa-sync-alt mr-1"></i>刷新</button>
+                </div>
+            </div>
+            <div id="statsCards" class="grid grid-cols-2 md:grid-cols-4 gap-5 mb-8"></div>
+            <div id="studentListModal" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl">
+                    <h3 id="modalTitle" class="text-xl font-bold mb-3 text-slate-800">学生列表</h3>
+                    <div id="modalStudentList" class="max-h-96 overflow-y-auto divide-y divide-slate-100"></div>
+                    <div class="flex justify-end mt-4"><button id="closeModalBtn" class="px-4 py-2 bg-slate-100 rounded-xl hover:bg-slate-200">关闭</button></div>
+                </div>
+            </div>
+            <div class="bg-white/90 backdrop-blur-sm rounded-2xl shadow-xl overflow-hidden border border-white/30">
+                <div class="flex flex-wrap border-b border-slate-200/80 bg-slate-50/40 px-2 pt-2">
+                    <button data-tab="studentsTab" class="tab-btn px-5 py-3 text-sm font-medium rounded-t-xl"><i class="fas fa-users mr-1"></i>学生信息</button>
+                    <button data-tab="crisisTab" class="tab-btn px-5 py-3 text-sm font-medium rounded-t-xl"><i class="fas fa-exclamation-triangle mr-1"></i>危机筛查&建档</button>
+                    <button data-tab="interveneTab" class="tab-btn px-5 py-3 text-sm font-medium rounded-t-xl"><i class="fas fa-chart-line mr-1"></i>干预&PHQ-9趋势</button>
+                    <button data-tab="medicalTab" class="tab-btn px-5 py-3 text-sm font-medium rounded-t-xl" id="medicalTabBtn"><i class="fas fa-hospital-user mr-1"></i>就诊记录</button>
+                    <button data-tab="analysisTab" class="tab-btn px-5 py-3 text-sm font-medium rounded-t-xl"><i class="fas fa-chalkboard-teacher mr-1"></i>分析与建议</button>
+                    <button data-tab="logTab" class="tab-btn px-5 py-3 text-sm font-medium rounded-t-xl"><i class="fas fa-history mr-1"></i>操作日志</button>
+                </div>
+                <div id="studentsTab" class="tab-pane p-5"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-semibold text-slate-800">📋 学生基础信息</h2><button id="addStudentBtn" class="btn-primary text-white px-4 py-2 rounded-xl text-sm shadow-md"><i class="fas fa-plus mr-1"></i>新增学生</button></div><div class="overflow-x-auto bg-white rounded-xl shadow-sm"><table class="min-w-full rounded-lg text-sm"><thead class="bg-slate-100 text-slate-700"><tr><th class="px-4 py-2">姓名</th><th>年龄</th><th>性别</th><th>班级</th><th>班主任</th><th>当前危机等级</th><th>操作</th></tr></thead><tbody id="studentList"></tbody></table></div></div>
+                <div id="crisisTab" class="tab-pane hidden p-5"><div class="flex justify-between items-center mb-4"><h2 class="text-xl font-semibold text-slate-800">⚠️ 危机个案档案</h2><button id="newCaseBtn" class="btn-primary text-white px-4 py-2 rounded-xl text-sm shadow-md"><i class="fas fa-folder-plus mr-1"></i>新建危机档案</button></div><div id="caseList" class="space-y-3 max-h-[500px] overflow-y-auto pr-1"></div></div>
+                <div id="interveneTab" class="tab-pane hidden p-5"><h2 class="text-xl font-semibold mb-3 text-slate-800">📊 PHQ-9 全程追踪 & 干预记录</h2><div class="mb-4 flex flex-col md:flex-row gap-4"><div class="flex-1"><label class="block text-sm font-medium text-slate-700">选择学生 (仅显示进行中个案)</label><select id="interveneStudentSelect" class="mt-1 p-2 border border-slate-200 rounded-xl w-full bg-white shadow-sm"></select></div><div class="flex-1"><button id="addInterventionBtn" class="bg-indigo-600 text-white px-4 py-2 rounded-xl text-sm mt-6 shadow-md hover:bg-indigo-700"><i class="fas fa-plus-circle mr-1"></i>新增干预记录</button></div></div><div id="studentInfoCard" class="info-card p-4 rounded-xl mb-4 hidden"></div><div class="bg-white p-3 rounded-xl shadow-sm border mb-5"><div class="flex flex-wrap gap-2 border-b pb-2 mb-3"><button id="chartTotalBtn" class="chart-switch-btn px-3 py-1 text-sm rounded-t-lg bg-blue-100 text-blue-800">总分趋势图</button><button id="chartItemBtn" class="chart-switch-btn px-3 py-1 text-sm rounded-t-lg">单项分数趋势图</button><button id="chartRadarBtn" class="chart-switch-btn px-3 py-1 text-sm rounded-t-lg">雷达图</button><button id="chartTeacherScoreBtn" class="chart-switch-btn px-3 py-1 text-sm rounded-t-lg">心理教师主观评测图</button></div><div id="chartTitle" class="text-sm font-medium text-center mb-2 text-slate-600"></div><div id="chartContainer" class="relative h-80 w-full"><canvas id="mainChart"></canvas></div><div id="radarSelectContainer" class="mt-2 hidden"><label class="text-sm">选择测评时间点：</label><select id="radarSelect" class="border rounded p-1 text-sm"></select></div><div id="itemSelectContainer" class="mt-2 hidden"><label class="text-sm">选择PHQ-9项目：</label><select id="phq9ItemSelect" class="border rounded p-1 text-sm"></select></div></div>
+                <!-- 干预记录时间线，支持多次记录展示 -->
+                <div id="interventionTimeline" class="space-y-3 max-h-[450px] overflow-y-auto"></div>
+            </div>
+                <div id="medicalTab" class="tab-pane hidden p-5"><h2 class="text-xl font-semibold mb-3 text-slate-800">🏥 就诊记录 <button id="showReminderListBtn" class="ml-4 bg-red-100 text-red-700 px-3 py-1 rounded-full text-sm shadow-sm"><i class="fas fa-bell mr-1"></i>复诊提醒</button></h2><div class="mb-4"><label class="text-sm font-medium text-slate-700">选择个案</label><select id="medicalCaseSelect" class="mt-1 p-2 border border-slate-200 rounded-xl w-full md:w-1/2 bg-white shadow-sm"></select></div><div class="bg-white border p-4 rounded-xl shadow-sm"><h3 class="font-medium text-slate-800">就诊历史记录</h3><div id="medicalRecordsList" class="space-y-3 my-3 max-h-60 overflow-y-auto"></div><div class="border-t pt-3 mt-2"><p class="text-sm font-medium mb-2 text-slate-700">新增就诊记录</p><div class="grid grid-cols-1 md:grid-cols-3 gap-3"><div><label class="text-xs text-slate-500">本次就诊时间</label><input type="datetime-local" id="visitDate" class="w-full border border-slate-200 rounded-xl p-1 text-sm"></div><div><label class="text-xs text-slate-500">下次复诊时间</label><input type="datetime-local" id="nextVisitDate" class="w-full border border-slate-200 rounded-xl p-1 text-sm"></div><div><label class="text-xs text-slate-500">上传图片</label><input type="file" id="visitImage" accept="image/*" class="text-xs"></div></div><button id="addMedicalRecordBtn" class="mt-3 bg-blue-700 text-white px-4 py-2 rounded-xl text-sm shadow-sm">保存就诊记录</button></div></div><div id="reminderModal" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4"><div class="bg-white rounded-2xl max-w-2xl w-full p-6"><h3 class="text-lg font-bold mb-3">⏰ 复诊提醒</h3><div id="reminderList" class="max-h-96 overflow-y-auto"></div><div class="flex justify-end mt-4"><button id="closeReminderModal" class="px-4 py-2 bg-gray-200 rounded-xl">关闭</button></div></div></div></div>
+                <div id="analysisTab" class="tab-pane hidden p-5"><h2 class="text-xl font-semibold mb-3 text-slate-800">📋 分析与建议</h2><div class="mb-4"><label class="block text-sm font-medium text-slate-700">选择个案 (未结案)</label><select id="analysisCaseSelect" class="mt-1 p-2 border border-slate-200 rounded-xl w-full md:w-1/2 bg-white shadow-sm"></select></div><div id="analysisContent" class="bg-white border rounded-xl p-5 shadow-lg space-y-5"><div class="ai-thinking text-purple-800 text-sm"><i class="fas fa-brain mr-1"></i> AI综合分析引擎已根据学生历史数据、PHQ-9趋势、干预记录等进行了深度思考，生成以下个性化评估报告：</div><div class="analysis-card-custom p-4 rounded-xl"><h3 class="font-bold text-amber-800">📌 学生当前心理危机情况评价（AI总结）</h3><p id="evaluationText" class="text-slate-700 mt-1">请选择个案</p></div><div class="guidance-card p-4 rounded-xl"><h3 class="font-bold text-blue-800">💡 近期干预手段指导 (依据标准 + AI个性优化)</h3><ul id="guidanceList" class="list-disc pl-5 mt-1 space-y-1 text-slate-700"></ul></div><div class="advice-card p-4 rounded-xl"><h3 class="font-bold text-green-800">🔒 危机解除建议</h3><p id="adviceText" class="text-slate-700 mt-1">选择个案后自动生成</p></div></div></div>
+                <div id="logTab" class="tab-pane hidden p-5"><div class="flex justify-between items-center mb-3"><h2 class="text-xl font-semibold text-slate-800">📋 操作日志</h2><button id="clearLogsBtn" class="text-xs text-red-500 border border-red-200 px-3 py-1 rounded-xl hover:bg-red-50">清空日志</button></div><div class="bg-gray-50 rounded-xl p-3 h-96 overflow-y-auto font-mono text-xs border border-slate-100"><ul id="logList"></ul></div></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // -------------------- 用户认证模块 --------------------
+        const USERS_STORAGE = 'crisis_users';
+        let currentUser = null;
+
+        function initUsers() {
+            let users = localStorage.getItem(USERS_STORAGE);
+            if (!users) {
+                const defaultUsers = [{ username: 'hftj', password: '!wang1995' }];
+                localStorage.setItem(USERS_STORAGE, JSON.stringify(defaultUsers));
+            }
+        }
+        function findUser(username) {
+            const users = JSON.parse(localStorage.getItem(USERS_STORAGE) || '[]');
+            return users.find(u => u.username === username);
+        }
+        function registerUser(username, password) {
+            const users = JSON.parse(localStorage.getItem(USERS_STORAGE) || '[]');
+            if (users.find(u => u.username === username)) return false;
+            users.push({ username, password });
+            localStorage.setItem(USERS_STORAGE, JSON.stringify(users));
+            return true;
+        }
+        function changePassword(username, oldPwd, newPwd) {
+            const users = JSON.parse(localStorage.getItem(USERS_STORAGE) || '[]');
+            const user = users.find(u => u.username === username);
+            if (!user || user.password !== oldPwd) return false;
+            user.password = newPwd;
+            localStorage.setItem(USERS_STORAGE, JSON.stringify(users));
+            return true;
+        }
+        function login(username, password) {
+            const user = findUser(username);
+            if (user && user.password === password) {
+                currentUser = username;
+                return true;
+            }
+            return false;
+        }
+        function logout() {
+            currentUser = null;
+            document.getElementById('mainApp').classList.add('hidden');
+            document.getElementById('loginContainer').classList.remove('hidden');
+            document.getElementById('logoutBtn').classList.add('hidden');
+        }
+
+        // -------------------- 主系统所有功能(完整，支持多次干预及就诊，恢复结案按钮) --------------------
+        const STORAGE = { students:'crisis_students_v7', cases:'crisis_cases_v7', interventions:'crisis_interventions_v7', medicalRecords:'crisis_medical_v7', logs:'crisis_logs_v7' };
+        let students = [], cases = [], interventions = [], medicalRecords = [], operationLogs = [];
+        let mainChart = null;
+        let currentStudentId = null;
+        let currentCaseId = null;
+        let currentChartMode = 'total';
+
+        const phq9ItemNames = ["兴趣缺失","情绪低落","睡眠障碍","疲倦乏力","食欲改变","自我否定","专注困难","精神运动改变","自杀意念"];
+
+        function persistAll() {
+            localStorage.setItem(STORAGE.students, JSON.stringify(students));
+            localStorage.setItem(STORAGE.cases, JSON.stringify(cases));
+            localStorage.setItem(STORAGE.interventions, JSON.stringify(interventions));
+            localStorage.setItem(STORAGE.medicalRecords, JSON.stringify(medicalRecords));
+            localStorage.setItem(STORAGE.logs, JSON.stringify(operationLogs));
+        }
+        function addLog(action, detail) { operationLogs.unshift({ timestamp: new Date().toISOString(), action, detail: detail.slice(0,200) }); if(operationLogs.length>300) operationLogs.pop(); persistAll(); renderLogs(); }
+        function loadData() {
+            students = JSON.parse(localStorage.getItem(STORAGE.students) || '[]');
+            cases = JSON.parse(localStorage.getItem(STORAGE.cases) || '[]');
+            interventions = JSON.parse(localStorage.getItem(STORAGE.interventions) || '[]');
+            medicalRecords = JSON.parse(localStorage.getItem(STORAGE.medicalRecords) || '[]');
+            operationLogs = JSON.parse(localStorage.getItem(STORAGE.logs) || '[]');
+        }
+        function getStudentRiskLevel(studentId) {
+            const active = cases.filter(c => c.studentId === studentId && c.status !== 'closed');
+            if(active.length===0) return '无危机';
+            const levelVal = {'一级':3,'二级':2,'三级':1};
+            let maxLevel = '三级';
+            for(let c of active) if(levelVal[c.crisisLevel] > (levelVal[maxLevel]||0)) maxLevel = c.crisisLevel;
+            return maxLevel;
+        }
+        function getPhq9RiskLevel(total) {
+            if(total >= 20) return { text: '极高风险', color: 'red-700', class: 'bg-red-100' };
+            if(total >= 15) return { text: '高风险', color: 'orange-700', class: 'bg-orange-100' };
+            if(total >= 10) return { text: '中等风险', color: 'yellow-700', class: 'bg-yellow-100' };
+            if(total >= 5) return { text: '轻度风险', color: 'blue-700', class: 'bg-blue-100' };
+            return { text: '正常范围', color: 'green-700', class: 'bg-green-100' };
+        }
+
+        // 统计卡片
+        function renderStats() {
+            const allStudents = students.length;
+            const activeCases = cases.filter(c=>c.status!=='closed').length;
+            const thirdLevelRiskCount = cases.filter(c=>c.crisisLevel==='三级' && c.status!=='closed').length;
+            const closedCount = cases.filter(c=>c.status==='closed').length;
+            document.getElementById('statsCards').innerHTML = `
+                <div class="stats-card p-4 border-l-4 border-indigo-400" data-type="all"><div class="text-2xl font-bold text-indigo-800">${allStudents}</div><div class="text-slate-600 text-sm">建档危机学生数</div></div>
+                <div class="stats-card p-4 border-l-4 border-amber-500" data-type="active"><div class="text-2xl font-bold text-amber-800">${activeCases}</div><div class="text-slate-600 text-sm">个案进行中学生数</div></div>
+                <div class="stats-card p-4 border-l-4 border-yellow-500" data-type="third"><div class="text-2xl font-bold text-yellow-800">${thirdLevelRiskCount}</div><div class="text-slate-600 text-sm">三级危机学生数</div></div>
+                <div class="stats-card p-4 border-l-4 border-emerald-500" data-type="closed"><div class="text-2xl font-bold text-emerald-800">${closedCount}</div><div class="text-slate-600 text-sm">已结案数</div></div>
+            `;
+            document.querySelectorAll('.stats-card').forEach(card => {
+                card.addEventListener('click', () => {
+                    const type = card.dataset.type;
+                    let filtered = []; let title = '';
+                    if(type === 'all') { filtered = students.map(s => ({ ...s, risk: getStudentRiskLevel(s.id) })); title = '所有建档学生列表'; }
+                    else if(type === 'active') { const ids = cases.filter(c=>c.status!=='closed').map(c=>c.studentId); filtered = students.filter(s => ids.includes(s.id)).map(s => ({ ...s, risk: getStudentRiskLevel(s.id) })); title = '个案进行中学生列表'; }
+                    else if(type === 'third') { const ids = cases.filter(c=>c.crisisLevel==='三级' && c.status!=='closed').map(c=>c.studentId); filtered = students.filter(s => ids.includes(s.id)).map(s => ({ ...s, risk: getStudentRiskLevel(s.id) })); title = '三级危机学生列表'; }
+                    else if(type === 'closed') { const ids = cases.filter(c=>c.status==='closed').map(c=>c.studentId); filtered = students.filter(s => ids.includes(s.id)).map(s => ({ ...s, risk: getStudentRiskLevel(s.id) })); title = '已结案学生列表'; }
+                    const modal = document.getElementById('studentListModal');
+                    const listDiv = document.getElementById('modalStudentList');
+                    if(filtered.length === 0) listDiv.innerHTML = '<div class="text-slate-500 p-2">暂无数据</div>';
+                    else listDiv.innerHTML = filtered.map(s => `<div class="flex justify-between items-center p-2"><div><span class="font-medium">${s.name}</span> (${s.className||'未知班级'})</div><div class="text-sm bg-slate-100 px-2 py-0.5 rounded-full">危机等级：${s.risk}</div></div>`).join('');
+                    document.getElementById('modalTitle').innerText = title;
+                    modal.classList.remove('hidden');
+                });
+            });
+            document.getElementById('closeModalBtn').onclick = () => document.getElementById('studentListModal').classList.add('hidden');
+        }
+
+        // 学生管理函数
+        let currentStudentSaveHandler = null;
+        function renderStudents() {
+            const tbody = document.getElementById('studentList');
+            tbody.innerHTML = students.map(s => `<tr class="border-b"><td class="px-3 py-2">${s.name}</td><td class="px-3 py-2">${s.age||'—'}</td><td class="px-3 py-2">${s.gender||'—'}</td><td class="px-3 py-2">${s.className||'—'}</td><td class="px-3 py-2">${s.homeroomTeacher||'—'}</td><td class="px-3 py-2"><span class="px-2 py-0.5 rounded-full text-xs ${getStudentRiskLevel(s.id)==='一级'?'bg-red-100 text-red-700':getStudentRiskLevel(s.id)==='二级'?'bg-orange-100 text-orange-700':'bg-gray-100'}">${getStudentRiskLevel(s.id)}</span></td><td class="px-3 py-2"><button data-id="${s.id}" class="editStudentBtn text-blue-600 text-sm mr-2">编辑</button><button data-id="${s.id}" class="deleteStudentBtn text-red-500 text-sm">删除</button></td></tr>`).join('');
+            document.querySelectorAll('.editStudentBtn').forEach(btn=>btn.addEventListener('click',()=>openStudentModal(parseInt(btn.dataset.id))));
+            document.querySelectorAll('.deleteStudentBtn').forEach(btn=>btn.addEventListener('click',()=>{ if(confirm('删除学生将解除其个案关联')) deleteStudentAndRelated(parseInt(btn.dataset.id)); }));
+        }
+        function deleteStudentAndRelated(id) { students=students.filter(s=>s.id!==id); cases.forEach(c=>{if(c.studentId===id) c.studentId=null;}); addLog('删除学生',`ID ${id}`); persistAll(); renderAll(); }
+        function openStudentModal(id=null) {
+            const modal=document.getElementById('studentModal'), title=document.getElementById('studentModalTitle'), container=document.getElementById('studentFormFields');
+            const editStu = id ? students.find(s=>s.id===id) : null;
+            title.innerText = editStu ? '编辑学生' : '新增学生';
+            container.innerHTML = `<div class="mb-2"><label>姓名*</label><input id="stuName" class="w-full border rounded-xl p-2" value="${editStu?.name||''}"></div><div class="mb-2"><label>年龄</label><input id="stuAge" type="number" class="w-full border rounded-xl p-2" value="${editStu?.age||''}"></div><div class="mb-2"><label>性别</label><select id="stuGender" class="w-full border rounded-xl p-2"><option ${editStu?.gender==='男'?'selected':''}>男</option><option ${editStu?.gender==='女'?'selected':''}>女</option></select></div><div class="mb-2"><label>班级</label><input id="stuClass" class="w-full border rounded-xl p-2" value="${editStu?.className||''}"></div><div class="mb-2"><label>班主任姓名</label><input id="stuTeacher" class="w-full border rounded-xl p-2" value="${editStu?.homeroomTeacher||''}"></div>`;
+            modal.classList.remove('hidden');
+            if (currentStudentSaveHandler) document.getElementById('saveStudentBtn').removeEventListener('click', currentStudentSaveHandler);
+            currentStudentSaveHandler = () => {
+                let name=document.getElementById('stuName').value.trim(); if(!name) return alert('姓名必填');
+                let newStu = { id: editStu?editStu.id:Date.now(), name, age:document.getElementById('stuAge').value, gender:document.getElementById('stuGender').value, className:document.getElementById('stuClass').value, homeroomTeacher:document.getElementById('stuTeacher').value };
+                if(editStu) { Object.assign(editStu,newStu); addLog('编辑学生',name); } else { students.push(newStu); addLog('新增学生',name); }
+                persistAll(); renderAll(); modal.classList.add('hidden');
+            };
+            document.getElementById('saveStudentBtn').addEventListener('click', currentStudentSaveHandler);
+            document.getElementById('closeStudentModal').onclick=()=>modal.classList.add('hidden');
+        }
+
+        // 危机个案管理 (恢复结案按钮)
+        let currentCaseSaveHandler = null;
+        function renderCases() {
+            const container=document.getElementById('caseList');
+            container.innerHTML = cases.sort((a,b)=>b.id-a.id).map(c=>{
+                const stu = students.find(s=>s.id===c.studentId);
+                const stuShow = stu ? stu.name : '未知';
+                const levelClass = c.crisisLevel==='一级'?'risk-level-1':c.crisisLevel==='二级'?'risk-level-2':c.crisisLevel==='三级'?'risk-level-3':'risk-closed';
+                return `<div class="p-3 rounded-lg border ${c.status==='closed'?'risk-closed':levelClass} shadow-sm flex flex-wrap justify-between items-center"><div><div class="font-bold">${stuShow} | ${c.crisisLevel} | ${c.currentStatus||'未知'}</div><div class="text-xs">识别事件:${c.crisisEvent?.substring(0,30)} 诱发情境:${c.triggerSituation?.substring(0,30)}</div><div class="text-xs">养育者:${c.primaryCarer||''} 教养方式:${c.parentingStyle||''}</div></div><div><button data-id="${c.id}" class="editCaseBtn text-indigo-600 text-sm mr-2">编辑</button>${c.status !== 'closed' ? `<button data-id="${c.id}" class="closeCaseBtn text-amber-600 text-sm mr-2">结案</button>` : ''}<button data-id="${c.id}" class="deleteCaseBtn text-red-500 text-sm">删除</button></div></div>`;
+            }).join('');
+            document.querySelectorAll('.editCaseBtn').forEach(btn=>btn.addEventListener('click',()=>openCaseModal(parseInt(btn.dataset.id))));
+            document.querySelectorAll('.closeCaseBtn').forEach(btn=>btn.addEventListener('click',()=>{ if(confirm('确认结案此个案？')) closeCaseById(parseInt(btn.dataset.id)); }));
+            document.querySelectorAll('.deleteCaseBtn').forEach(btn=>btn.addEventListener('click',()=>{ if(confirm('永久删除该个案及所有关联数据')) deleteCaseCompletely(parseInt(btn.dataset.id)); }));
+        }
+        function closeCaseById(caseId) {
+            let c = cases.find(c=>c.id===caseId);
+            if(c && c.status !== 'closed') {
+                c.status = 'closed';
+                addLog('结案',`个案ID ${caseId} 已结案`);
+                persistAll();
+                renderAll();
+            }
+        }
+        function deleteCaseCompletely(caseId) { cases = cases.filter(c=>c.id!==caseId); interventions = interventions.filter(i=>i.caseId!==caseId); medicalRecords = medicalRecords.filter(m=>m.caseId!==caseId); addLog('删除个案',`ID ${caseId}`); persistAll(); renderAll(); }
+        function openCaseModal(caseId=null) {
+            let editing = caseId ? cases.find(c=>c.id===caseId) : null;
+            const modal=document.getElementById('caseModal'), container=document.getElementById('caseFormContainer');
+            if(students.length===0) { alert('请先添加学生'); modal.classList.add('hidden'); return; }
+            const studentOpts = students.map(s=>`<option value="${s.id}" ${editing && editing.studentId===s.id ? 'selected':''}>${s.name} (${s.className||''})</option>`).join('');
+            container.innerHTML = `
+                <div class="mb-2"><label>关联学生*</label><select id="caseStudentId" class="w-full border rounded-xl p-2">${studentOpts}</select></div>
+                <div class="mb-2"><label>危机识别事件</label><input id="crisisEvent" class="w-full border rounded-xl p-2" value="${editing?.crisisEvent||''}"></div>
+                <div class="mb-2"><label>状态诱发情境</label><input id="triggerSituation" class="w-full border rounded-xl p-2" value="${editing?.triggerSituation||''}"></div>
+                <div class="mb-2"><label>主要养育者</label><input id="primaryCarer" class="w-full border rounded-xl p-2" value="${editing?.primaryCarer||''}"></div>
+                <div class="mb-2"><label>家庭教养方式</label><select id="parentingStyle" class="w-full border rounded-xl p-2"><option ${editing?.parentingStyle==='专制'?'selected':''}>专制</option><option ${editing?.parentingStyle==='权威'?'selected':''}>权威</option><option ${editing?.parentingStyle==='忽视'?'selected':''}>忽视</option><option ${editing?.parentingStyle==='放纵'?'selected':''}>放纵</option></select></div>
+                <div class="mb-2"><label>危机等级</label><select id="crisisLevel" class="w-full border rounded-xl p-2"><option ${editing?.crisisLevel==='一级'?'selected':''}>一级</option><option ${editing?.crisisLevel==='二级'?'selected':''}>二级</option><option ${editing?.crisisLevel==='三级'?'selected':''}>三级</option></select></div>
+                <div class="mb-2"><label>当前状态</label><select id="currentStatus" class="w-full border rounded-xl p-2"><option ${editing?.currentStatus==='在校'?'selected':''}>在校</option><option ${editing?.currentStatus==='休学'?'selected':''}>休学</option><option ${editing?.currentStatus==='请假康复'?'selected':''}>请假康复</option></select></div>
+                <div class="mb-2"><label>班级表现情况记录</label><textarea id="classPerformance" rows="2" class="w-full border rounded-xl p-2">${editing?.classPerformance||''}</textarea></div>
+            `;
+            modal.classList.remove('hidden');
+            if (currentCaseSaveHandler) document.getElementById('saveCaseBtn').removeEventListener('click', currentCaseSaveHandler);
+            currentCaseSaveHandler = () => {
+                let studentId = parseInt(document.getElementById('caseStudentId').value);
+                if(!studentId) return alert('选择学生');
+                let newCase = { id: editing ? editing.id : Date.now(), studentId, triggerSituation: document.getElementById('triggerSituation').value, crisisEvent: document.getElementById('crisisEvent').value, primaryCarer: document.getElementById('primaryCarer').value, parentingStyle: document.getElementById('parentingStyle').value, crisisLevel: document.getElementById('crisisLevel').value, currentStatus: document.getElementById('currentStatus').value, classPerformance: document.getElementById('classPerformance').value, status: editing ? editing.status : 'active', createdAt: editing ? editing.createdAt : new Date().toISOString() };
+                if(editing) { Object.assign(editing,newCase); addLog('编辑个案',`ID ${newCase.id}`); } else { cases.push(newCase); addLog('新建危机档案',`学生ID${studentId}`); }
+                persistAll(); renderAll(); modal.classList.add('hidden');
+            };
+            document.getElementById('saveCaseBtn').addEventListener('click', currentCaseSaveHandler);
+            document.getElementById('closeCaseModal').onclick=()=>modal.classList.add('hidden');
+        }
+
+        // PHQ-9 表单生成
+        function generatePhq9Html() {
+            let html = `<div class="border rounded-lg p-3 bg-white mt-3"><p class="font-semibold mb-2">📋 PHQ-9 (每项0-3分)</p>`;
+            for(let i=0;i<9;i++) html += `<div class="phq9-item"><span>${i+1}. ${phq9ItemNames[i]}</span><select class="phq9-select" data-index="${i}"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option></select></div>`;
+            html += `<div class="mt-2 p-2 bg-slate-100 rounded flex justify-between"><span>总分：</span><span id="phq9TotalDisplay" class="font-bold">0</span></div></div>`;
+            return html;
+        }
+        function bindPhq9Events() { const selects=document.querySelectorAll('.phq9-select'); const update=()=>{ let total=0; selects.forEach(s=>total+=parseInt(s.value)); let span=document.getElementById('phq9TotalDisplay'); if(span) span.innerText=total; }; selects.forEach(s=>s.addEventListener('change',update)); update(); }
+
+        // 干预模块核心函数 —— 支持多次添加记录 (包含干预时间选项)
+        function refreshInterveneSelect() {
+            let sel = document.getElementById('interveneStudentSelect');
+            let activeList = cases.filter(c=>c.status!=='closed' && c.studentId).map(c=>{ let s=students.find(st=>st.id===c.studentId); return s?{id:s.id,name:s.name,caseId:c.id}:null; }).filter(v=>v);
+            let uniq = new Map(); activeList.forEach(item=>uniq.set(item.id,item));
+            sel.innerHTML = Array.from(uniq.values()).map(o=>`<option value="${o.id}" data-case="${o.caseId}">${o.name}</option>`).join('');
+            if(sel.value) { currentStudentId = parseInt(sel.value); currentCaseId = cases.find(c=>c.studentId===currentStudentId && c.status!=='closed')?.id; loadInterventionAndChart(); }
+        }
+        function loadInterventionAndChart() {
+            if(!currentStudentId) return;
+            let targetCase = cases.find(c=>c.studentId===currentStudentId && c.status!=='closed');
+            if(!targetCase) return;
+            currentCaseId = targetCase.id;
+            const student = students.find(s=>s.id===currentStudentId);
+            const infoCard = document.getElementById('studentInfoCard');
+            if(student) {
+                infoCard.innerHTML = `<div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm"><div><span class="font-semibold">姓名：</span>${student.name}</div><div><span class="font-semibold">年龄：</span>${student.age||'—'}</div><div><span class="font-semibold">性别：</span>${student.gender||'—'}</div><div><span class="font-semibold">班级：</span>${student.className||'—'}</div><div><span class="font-semibold">班主任：</span>${student.homeroomTeacher||'—'}</div><div><span class="font-semibold">危机等级：</span>${targetCase.crisisLevel}</div><div><span class="font-semibold">当前状态：</span>${targetCase.currentStatus}</div><div><span class="font-semibold">主要养育者：</span>${targetCase.primaryCarer||'—'}</div></div><div class="mt-2 text-xs text-slate-500">建档时间：${new Date(targetCase.createdAt).toLocaleDateString()} | 识别事件：${targetCase.crisisEvent||'无'}</div>`;
+                infoCard.classList.remove('hidden');
+            } else infoCard.classList.add('hidden');
+            let records = interventions.filter(i=>i.caseId===targetCase.id).sort((a,b)=>new Date(a.date)-new Date(b.date));
+            let timelineHtml = '';
+            records.forEach((rec,idx)=>{
+                let extraHtml='';
+                if(rec.type==='心理老师心理辅导' && rec.extra) extraHtml = `<div class="mt-2 text-sm bg-blue-50 p-2 rounded">PHQ-9总分:${rec.extra.phq9Total}/27 | 服药:${rec.extra.medication?'是':'否'} | 综合评分:${rec.extra.teacherScore}/10 | 当前危机等级:${rec.extra.currentRiskLevel||'未变'}<div>辅导记录:${rec.extra.counselingRecord||''}</div></div>`;
+                else if(rec.type !== '心理老师心理辅导' && rec.content) extraHtml = `<div class="mt-2 text-sm bg-gray-50 p-2 rounded"><strong>记录内容：</strong>${rec.content}</div>`;
+                timelineHtml += `<div class="bg-white border rounded-lg p-3 shadow-sm"><div class="flex justify-between"><span>#${idx+1} ${new Date(rec.date).toLocaleString()}</span><span class="text-indigo-600">${rec.type}</span></div>${extraHtml}</div>`;
+            });
+            document.getElementById('interventionTimeline').innerHTML = timelineHtml || '<div>暂无干预记录<span class="text-slate-400 ml-2">（点击上方“新增干预记录”可多次添加）</span></div>';
+            updateChartDisplay();
+        }
+        function getPhq9History(caseId) {
+            return interventions.filter(i=>i.caseId===caseId && i.type==='心理老师心理辅导' && i.extra && i.extra.phq9Scores).sort((a,b)=>new Date(a.date)-new Date(b.date)).map(r=>({ date: new Date(r.date), total: r.extra.phq9Total, scores: r.extra.phq9Scores }));
+        }
+        function getTeacherScoreHistory(caseId) {
+            return interventions.filter(i=>i.caseId===caseId && i.type==='心理老师心理辅导' && i.extra && i.extra.teacherScore).sort((a,b)=>new Date(a.date)-new Date(b.date)).map(r=>({ date: new Date(r.date), score: r.extra.teacherScore }));
+        }
+        function updateChartDisplay() {
+            if(!currentCaseId) return;
+            const history = getPhq9History(currentCaseId);
+            const teacherHistory = getTeacherScoreHistory(currentCaseId);
+            const student = students.find(s=>s.id===currentStudentId);
+            const studentName = student ? student.name : '学生';
+            document.querySelectorAll('.chart-switch-btn').forEach(btn=>btn.classList.remove('chart-tab-active'));
+            if(currentChartMode==='total') document.getElementById('chartTotalBtn').classList.add('chart-tab-active');
+            else if(currentChartMode==='item') document.getElementById('chartItemBtn').classList.add('chart-tab-active');
+            else if(currentChartMode==='radar') document.getElementById('chartRadarBtn').classList.add('chart-tab-active');
+            else if(currentChartMode==='teacherScore') document.getElementById('chartTeacherScoreBtn').classList.add('chart-tab-active');
+            if(currentChartMode==='total') {
+                if(history.length===0) { if(mainChart) mainChart.destroy(); document.getElementById('chartTitle').innerText = `${studentName} - 暂无PHQ-9数据`; return; }
+                if(mainChart) mainChart.destroy();
+                const ctx = document.getElementById('mainChart').getContext('2d');
+                const labels = history.map((h,i)=>`${new Date(h.date).toLocaleDateString()}\n(第${i+1}次)`);
+                document.getElementById('chartTitle').innerText = `${studentName} - PHQ-9总分趋势图 (分值越高风险越高)`;
+                mainChart = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:'PHQ-9总分 (0-27)', data:history.map(h=>h.total), borderColor:'#2563eb', tension:0.2 }] }, options:{ scales:{ y:{ min:0, max:27, title:{ display:true, text:'总分（越高风险越高）' } } } } });
+                document.getElementById('itemSelectContainer').classList.add('hidden'); document.getElementById('radarSelectContainer').classList.add('hidden');
+            } else if(currentChartMode==='item') {
+                if(history.length===0) { if(mainChart) mainChart.destroy(); document.getElementById('chartTitle').innerText = `${studentName} - 暂无PHQ-9数据`; return; }
+                document.getElementById('itemSelectContainer').classList.remove('hidden'); document.getElementById('radarSelectContainer').classList.add('hidden');
+                const itemSelect = document.getElementById('phq9ItemSelect');
+                itemSelect.innerHTML = phq9ItemNames.map((n,i)=>`<option value="${i}">${n}</option>`);
+                const drawItem = () => { const idx=parseInt(itemSelect.value); const scores=history.map(h=>h.scores[idx]); if(mainChart) mainChart.destroy(); const ctx=document.getElementById('mainChart').getContext('2d'); mainChart=new Chart(ctx,{ type:'line', data:{ labels:history.map((_,i)=>`第${i+1}次`), datasets:[{ label:`${phq9ItemNames[idx]}分数 (0-3)`, data:scores, borderColor:'#16a34a' }] }, options:{ scales:{ y:{ min:0, max:3 } } } }); };
+                itemSelect.onchange=drawItem; drawItem();
+            } else if(currentChartMode==='radar') {
+                if(history.length===0) { if(mainChart) mainChart.destroy(); document.getElementById('chartTitle').innerText = `${studentName} - 暂无PHQ-9数据`; return; }
+                document.getElementById('radarSelectContainer').classList.remove('hidden'); document.getElementById('itemSelectContainer').classList.add('hidden');
+                const radarSelect = document.getElementById('radarSelect');
+                radarSelect.innerHTML = history.map((h,i)=>`<option value="${i}">${new Date(h.date).toLocaleString()} (总分${h.total})</option>`);
+                const drawRadar = () => { const idx=parseInt(radarSelect.value); const selected=history[idx]; if(mainChart) mainChart.destroy(); const ctx=document.getElementById('mainChart').getContext('2d'); mainChart=new Chart(ctx,{ type:'radar', data:{ labels:phq9ItemNames, datasets:[{ label:'各项分数', data:selected.scores, backgroundColor:'rgba(59,130,246,0.2)', borderColor:'#3b82f6' }] }, options:{ scales:{ r:{ min:0, max:3 } } } }); };
+                radarSelect.onchange=drawRadar; drawRadar();
+            } else if(currentChartMode==='teacherScore') {
+                if(teacherHistory.length===0) { if(mainChart) mainChart.destroy(); document.getElementById('chartTitle').innerText = `${studentName} - 暂无心理教师主观评分数据`; return; }
+                if(mainChart) mainChart.destroy();
+                const ctx = document.getElementById('mainChart').getContext('2d');
+                const labels = teacherHistory.map((h,i)=>`${new Date(h.date).toLocaleDateString()}\n(第${i+1}次)`);
+                document.getElementById('chartTitle').innerText = `${studentName} - 心理教师主观综合评分趋势 (1-10分)`;
+                mainChart = new Chart(ctx, { type:'line', data:{ labels, datasets:[{ label:'教师综合评分', data:teacherHistory.map(h=>h.score), borderColor:'#f59e0b', tension:0.2, fill:false }] }, options:{ scales:{ y:{ min:1, max:10, title:{ display:true, text:'评分（越高状态越好）' } } } } });
+                document.getElementById('itemSelectContainer').classList.add('hidden'); document.getElementById('radarSelectContainer').classList.add('hidden');
+            }
+        }
+        // 新增干预记录 —— 每次保存都是追加新记录
+        function addInterventionHandler() {
+            if(!currentStudentId) return alert('请先选择学生');
+            let targetCase = cases.find(c=>c.studentId===currentStudentId && c.status!=='closed');
+            if(!targetCase) return alert('无进行中个案');
+            const modal=document.getElementById('interventionModal'), container=document.getElementById('interventionForm');
+            // 重置表单，确保每次打开都是全新的空白表单
+            container.innerHTML = `
+                <div class="mb-2"><label>干预日期时间</label><input type="datetime-local" id="intervDate" class="w-full border rounded-xl p-2" value="${new Date().toISOString().slice(0,16)}"></div>
+                <div class="mb-2"><label>干预类型</label><select id="intervType" class="w-full border rounded-xl p-2"><option>心理老师心理辅导</option><option>班主任沟通</option><option>家校沟通</option><option>师生家三方座谈</option><option>学校领导关怀</option><option>其它</option></select></div>
+                <div class="mb-2"><label>干预内容记录</label><textarea id="intervContent" rows="2" class="w-full border rounded-xl p-2" placeholder="请详细记录本次干预的过程、要点和成效..."></textarea></div>
+                <div id="psychoExtraFields" class="hidden border-t pt-2 mt-2">
+                    <div id="phq9Container"></div>
+                    <div class="mt-2"><label>是否服药</label><select id="medicationSelect" class="w-full border rounded-xl p-1"><option value="false">否</option><option value="true">是</option></select></div>
+                    <div class="mt-2"><label>心理老师学生情况综合评分 (1-10)</label><input type="number" id="teacherScore" min="1" max="10" class="w-full border rounded-xl p-1" value="5"></div>
+                    <div class="mt-2"><label>当前危机等级</label><select id="currentRiskLevel" class="w-full border rounded-xl p-1"><option value="">未变动</option><option>一类</option><option>二类</option><option>三类</option></select></div>
+                    <div class="mt-2"><label>辅导记录</label><textarea id="counselingRecord" rows="2" class="w-full border rounded-xl p-1"></textarea></div>
+                </div>
+            `;
+            document.getElementById('phq9Container').innerHTML = generatePhq9Html();
+            const typeSel = document.getElementById('intervType');
+            const extraDiv = document.getElementById('psychoExtraFields');
+            typeSel.onchange = () => { if(typeSel.value==='心理老师心理辅导') { extraDiv.classList.remove('hidden'); bindPhq9Events(); } else extraDiv.classList.add('hidden'); };
+            typeSel.onchange(); // 初始触发一次
+            modal.classList.remove('hidden');
+            // 保存时使用全新ID，push到数组，实现追加
+            let saveHandler = () => {
+                let date = document.getElementById('intervDate').value;
+                if(!date) { alert('请填写干预日期时间'); return; }
+                let type = typeSel.value;
+                let content = document.getElementById('intervContent').value.trim();
+                if(!content) { alert('请填写干预内容记录'); return; }
+                let obj = { id: Date.now(), caseId: targetCase.id, date, type, content, extra: null };
+                if(type === '心理老师心理辅导') {
+                    let total=0, scores=[];
+                    document.querySelectorAll('.phq9-select').forEach(sel=>{ let v=parseInt(sel.value); scores.push(v); total+=v; });
+                    obj.extra = { phq9Total:total, phq9Scores:scores, medication: document.getElementById('medicationSelect').value==='true', teacherScore: parseInt(document.getElementById('teacherScore').value), counselingRecord: document.getElementById('counselingRecord').value, currentRiskLevel: document.getElementById('currentRiskLevel').value };
+                }
+                interventions.push(obj); // 追加新记录
+                addLog('干预记录',`新增第${interventions.filter(i=>i.caseId===targetCase.id).length}次干预 | ${type} 内容:${content.substring(0,30)}`);
+                persistAll(); renderAll(); modal.classList.add('hidden');
+                document.getElementById('saveInterventionBtn').removeEventListener('click', saveHandler);
+            };
+            document.getElementById('saveInterventionBtn').removeEventListener('click', saveHandler);
+            document.getElementById('saveInterventionBtn').addEventListener('click', saveHandler);
+            document.getElementById('closeInterventionModal').onclick=()=>modal.classList.add('hidden');
+        }
+
+        // 就诊记录模块 —— 支持多条就诊记录
+        function renderMedicalSelect() { let sel=document.getElementById('medicalCaseSelect'); let active=cases.filter(c=>c.status!=='closed' && c.studentId); sel.innerHTML=active.map(c=>{ let s=students.find(st=>st.id===c.studentId); return `<option value="${c.id}">${s?s.name:'未知'} - ${c.crisisLevel}</option>`; }).join(''); if(active.length) renderMedicalDetail(active[0].id); }
+        function renderMedicalDetail(caseId) { let meds=medicalRecords.filter(m=>m.caseId===caseId); document.getElementById('medicalRecordsList').innerHTML=meds.map(m=>`<div class="border p-2 rounded text-sm"><div>就诊时间:${new Date(m.visitDate).toLocaleString()}</div><div>下次复诊:${m.nextVisitDate?new Date(m.nextVisitDate).toLocaleString():'未定'}</div>${m.imageBase64?`<img src="${m.imageBase64}" class="preview-img mt-1">`:'无图片'}</div>`).join(''); window.currentMedicalCaseId=caseId; }
+        function addMedicalRecord() { 
+            let caseId = window.currentMedicalCaseId; 
+            if(!caseId) return alert('请先选择个案');
+            let visitDate = document.getElementById('visitDate').value; 
+            let nextVisitDate = document.getElementById('nextVisitDate').value; 
+            let file = document.getElementById('visitImage').files[0]; 
+            if(!visitDate) return alert('请填写就诊时间'); 
+            let reader = new FileReader(); 
+            reader.onload = function(e){ 
+                medicalRecords.push({id:Date.now(), caseId, visitDate, nextVisitDate, imageBase64: e.target.result}); 
+                addLog('就诊','添加就诊记录'); 
+                persistAll(); 
+                renderMedicalDetail(caseId); 
+                document.getElementById('visitDate').value=''; 
+                document.getElementById('nextVisitDate').value=''; 
+                document.getElementById('visitImage').value=''; 
+            }; 
+            if(file) reader.readAsDataURL(file); 
+            else { 
+                medicalRecords.push({id:Date.now(), caseId, visitDate, nextVisitDate, imageBase64: null}); 
+                addLog('就诊','添加就诊记录（无图片）'); 
+                persistAll(); 
+                renderMedicalDetail(caseId); 
+                document.getElementById('visitDate').value=''; 
+                document.getElementById('nextVisitDate').value=''; 
+                document.getElementById('visitImage').value='';
+            } 
+        }
+        function showReminderList() { const now=new Date(); let reminders=[]; for(let med of medicalRecords){ if(med.nextVisitDate){ let nextDate=new Date(med.nextVisitDate); let diff=(nextDate-now)/(1000*3600*24); if(diff<=2 && diff>=0){ let c=cases.find(c=>c.id===med.caseId); let stu=c?students.find(s=>s.id===c.studentId):null; reminders.push({student:stu?stu.name:'未知',nextVisit:nextDate.toLocaleString()}); } } } const modal=document.getElementById('reminderModal'); const listDiv=document.getElementById('reminderList'); if(reminders.length===0) listDiv.innerHTML='<div class="text-slate-500">暂无即将复诊的学生</div>'; else listDiv.innerHTML=reminders.map(r=>`<div class="border-b p-2"><div class="font-medium">${r.student}</div><div>下次复诊: ${r.nextVisit}</div></div>`).join(''); modal.classList.remove('hidden'); document.getElementById('closeReminderModal').onclick=()=>modal.classList.add('hidden'); }
+
+        // AI分析模块（完整）
+        function determineCrisisCategory(caseData, latestPhq9Total, latestPhq9Scores, records, studentStatus) {
+            let category = '一类'; let urgent = false;
+            let suicideScore = (latestPhq9Scores && latestPhq9Scores[8] !== undefined) ? latestPhq9Scores[8] : null;
+            let hasUrgentKeywords = records.some(r => r.content && (r.content.includes('自杀计划') || r.content.includes('准备行动') || r.content.includes('自杀未遂') || r.content.includes('严重暴力')));
+            let isSevereDisorder = caseData.crisisEvent && (caseData.crisisEvent.includes('抑郁症') || caseData.crisisEvent.includes('双相') || caseData.crisisEvent.includes('精神分裂') || caseData.crisisEvent.includes('焦虑症') || caseData.crisisEvent.includes('强迫症'));
+            if ( (suicideScore !== null && suicideScore === 1) || (latestPhq9Total && latestPhq9Total >= 20) || isSevereDisorder || hasUrgentKeywords) {
+                category = '三类';
+                if (suicideScore >= 2 || hasUrgentKeywords || (latestPhq9Total && latestPhq9Total >= 25) ) urgent = true;
+                else urgent = false;
+            } else if ( (latestPhq9Total !== null && latestPhq9Total < 10) && (caseData.triggerSituation && (caseData.triggerSituation.includes('重大变故') || caseData.triggerSituation.includes('亲人死亡') || caseData.triggerSituation.includes('父母离异') || caseData.triggerSituation.includes('暴力') || caseData.triggerSituation.includes('车祸') || caseData.triggerSituation.includes('性伤害') || caseData.triggerSituation.includes('严重失败'))) ) {
+                category = '二类';
+            } else if (latestPhq9Total !== null && latestPhq9Total >= 10 && latestPhq9Total < 20 && suicideScore === 0) {
+                if (caseData.triggerSituation && (caseData.triggerSituation.includes('重大') || caseData.triggerSituation.includes('人际冲突') || caseData.triggerSituation.includes('失恋') || caseData.triggerSituation.includes('学业困难'))) category = '二类';
+                else category = '一类';
+            } else { category = '一类'; }
+            return { category, urgent };
+        }
+        function generateAISummary(studentName, caseData, latestPhq9Total, latestPhq9Scores, history, records, teacherScores, hasMedical) {
+            let summary = `【AI综合分析】针对${studentName}同学，基于${history.length}次PHQ-9测评和${records.length}次干预记录，核心发现如下：\n`;
+            if (latestPhq9Total !== null) {
+                let risk = getPhq9RiskLevel(latestPhq9Total);
+                summary += `• 当前PHQ-9总分${latestPhq9Total}（${risk.text}），`;
+                if (history.length > 1) {
+                    let first = history[0].total;
+                    let trend = latestPhq9Total < first ? '呈下降趋势，干预可能有效' : (latestPhq9Total > first ? '呈上升趋势，风险加剧' : '持平，需加强关注');
+                    summary += `较首次测评（${first}分）${trend}。`;
+                } else summary += `需持续监测变化。`;
+                if (latestPhq9Scores && latestPhq9Scores[8] > 0) summary += `自杀意念项得分${latestPhq9Scores[8]}，存在自伤风险信号。`;
+            } else { summary += `• 缺少PHQ-9完整数据，建议尽快开展首次测评。`; }
+            if (teacherScores.length > 0) {
+                let avg = teacherScores.reduce((a,b)=>a+b,0)/teacherScores.length;
+                summary += `\n• 教师主观综合评分平均${avg.toFixed(1)}/10，${avg>=7?'学生状态整体向好':'状态波动，需加强辅导'}。`;
+            }
+            if (hasMedical) summary += `\n• 有正规医疗就诊记录，建议持续跟进医嘱。`;
+            if (caseData.classPerformance) summary += `\n• 班级表现：${caseData.classPerformance.substring(0,60)}。`;
+            summary += `\n• 危机分类判定为${determineCrisisCategory(caseData, latestPhq9Total, latestPhq9Scores, records, caseData.currentStatus).category}危机，建议按照相应标准流程介入。`;
+            return summary;
+        }
+        function generateAnalysis(caseId) {
+            let c = cases.find(c=>c.id===caseId);
+            if(!c) return;
+            let stu = students.find(s=>s.id===c.studentId);
+            let studentName = stu ? stu.name : '该生';
+            let records = interventions.filter(i=>i.caseId===caseId).sort((a,b)=>new Date(a.date)-new Date(b.date));
+            let phq9History = getPhq9History(caseId);
+            let latestPhq9Total = phq9History.length>0 ? phq9History[phq9History.length-1].total : null;
+            let latestPhq9Scores = phq9History.length>0 ? phq9History[phq9History.length-1].scores : null;
+            let teacherScores = records.filter(r=>r.type==='心理老师心理辅导' && r.extra && r.extra.teacherScore).map(r=>r.extra.teacherScore);
+            let hasMedical = medicalRecords.some(m=>m.caseId===caseId);
+            let aiSummary = generateAISummary(studentName, c, latestPhq9Total, latestPhq9Scores, phq9History, records, teacherScores, hasMedical);
+            const { category, urgent } = determineCrisisCategory(c, latestPhq9Total, latestPhq9Scores, records, c.currentStatus);
+            let categoryDesc = '';
+            if (category === '一类') categoryDesc = '一类危机（一般心理危机）';
+            else if (category === '二类') categoryDesc = '二类危机（严重心理危机）';
+            else categoryDesc = urgent ? '三类危机（重大心理危机-紧急风险）' : '三类危机（重大心理危机-非紧急风险）';
+            let evalText = `${studentName}同学，${aiSummary}\n\n【官方评估】经系统判定为${categoryDesc}。`;
+            if (c.triggerSituation) evalText += ` 诱发情境：${c.triggerSituation.substring(0,80)}。`;
+            if (c.crisisEvent) evalText += ` 识别事件：${c.crisisEvent.substring(0,80)}。`;
+            evalText += ` 干预总次数：${records.length}次。`;
+            if (category === '一类') evalText += ` 该生属一般心理问题，通过学校心理支持与辅导基本可正常学习生活。`;
+            else if (category === '二类') evalText += ` 该生存在严重心理问题倾向，建议启动重点干预流程，通知家长并建议专业机构诊断。`;
+            else { if (urgent) evalText += ` 该生存在紧急风险，需立即启动安全干预流程，通知家长并转介精神科，24小时监护。`;
+            else evalText += ` 该生存在重大心理健康风险但非紧急，需尽快安排专业评估，并与家长签订监护承诺。`; }
+            document.getElementById('evaluationText').innerText = evalText;
+            let guidance = [];
+            if (category === '一类') {
+                guidance.push("🔹 学校层面：多开展心理健康教育培训，提升班主任、生活老师的心理危机识别与基本辅导技能。");
+                guidance.push("🔹 班主任：日常留意学生动态，给予关心和支持，使用倾听、共情等技巧。");
+                guidance.push("🔹 班级、学部二级跟踪关注，在学部备案，定期由班主任进行辅导沟通。");
+                guidance.push("🔹 建议学生参加团体心理活动或个别心理辅导，帮助解决具体适应、人际关系等问题。");
+            } else if (category === '二类') {
+                guidance.push("🔹 启动重点干预流程：班主任及时联系家长到校，告知心理状态及风险，建议接受专业机构诊断。");
+                guidance.push("🔹 班主任制定关爱方案并报政教处备案，经常与学生交流，关心困难，联系家长进行亲子沟通指导。");
+                guidance.push("🔹 心理教师：如学生自愿前来，提供心理辅导；指导班主任与家长沟通方法；必要时指导家长带孩子看专业心理医生。");
+                guidance.push("🔹 学校、学部、班级三级跟踪关注，确认治疗后能坚持学习的，签订监护承诺，确保按时服药和接受治疗。");
+                guidance.push("🔹 若学生已不能正常学习，立即监护并联系家长办理休学回家休养治疗。");
+            } else {
+                if (urgent) {
+                    guidance.push("🔹 紧急干预：立即通知家长到校，联系精神科医生或危机干预中心，确保学生人身安全，实施24小时监护。");
+                    guidance.push("🔹 心理教师在校领导小组指导下制定干预方案，报上级部门备案，保存书面记录与录音。");
+                    guidance.push("🔹 转介至具备资质的专业医疗机构，及时了解诊断与治疗情况，评估是否需要办理休学。");
+                } else {
+                    guidance.push("🔹 非紧急重大风险：由心理教师在校领导小组指导下制定干预方案，报上级主管部门备案。");
+                    guidance.push("🔹 班主任、心理教师、家长分别根据干预方案执行职责，建议家长及时转介专业医疗机构。");
+                    guidance.push("🔹 心理教师提供心理支持，班主任定期与学生沟通，关注其情绪变化，确保安全。");
+                }
+                guidance.push("🔹 所有干预过程均需使用《特殊群体学生帮扶记录表》，一生一表，存档备查。");
+            }
+            if (latestPhq9Scores) {
+                let highItems = [];
+                for(let i=0;i<9;i++) if(latestPhq9Scores[i]>=2) highItems.push(phq9ItemNames[i]);
+                if(highItems.length>0) guidance.push(`🔹 针对突出的问题症状（${highItems.join('、')}），建议开展针对性认知行为练习或放松训练。`);
+            }
+            guidance = [...new Set(guidance)];
+            if (guidance.length > 7) guidance = guidance.slice(0,7);
+            document.getElementById('guidanceList').innerHTML = guidance.map(g=>`<li>${g}</li>`).join('');
+            let advice = '';
+            if (c.status === 'closed') advice = '个案已结案，无需额外操作。';
+            else {
+                if (category === '一类') advice = '当学生情绪稳定，恢复正常学习生活，且连续4周无异常表现，可由班主任和心理教师共同评估，报政教处解除关注。';
+                else if (category === '二类') advice = '建议待学生接受专业治疗后，症状明显缓解，社会功能恢复，且PHQ-9总分连续两次低于10分，并由家长签署知情同意书后，可考虑解除危机。';
+                else { if (urgent) advice = '立即执行紧急干预，待急性期过后，由精神科医生出具证明，学校心理领导小组评估后方可解除戒备。';
+                else advice = '需持续接受专业治疗，至少3个月情绪稳定，无自伤自杀意念，学校心理评估小组同意后方可结案。'; }
+                advice += ' 解除危机后仍需持续跟踪1个学期。';
+            }
+            document.getElementById('adviceText').innerText = advice;
+        }
+        function renderAnalysisSelect() { 
+            let sel = document.getElementById('analysisCaseSelect'); 
+            let active = cases.filter(c=>c.status!=='closed' && c.studentId); 
+            sel.innerHTML = active.map(c=>{ let s=students.find(st=>st.id===c.studentId); return `<option value="${c.id}">${s?s.name:'未知'} - ${c.crisisLevel}</option>`; }).join(''); 
+            if(active.length) generateAnalysis(active[0].id); 
+            sel.onchange = () => generateAnalysis(parseInt(sel.value)); 
+        }
+
+        function exportFullExcel() { 
+            const wb = XLSX.utils.book_new(); 
+            for(let student of students){ 
+                const studentCases=cases.filter(c=>c.studentId===student.id); 
+                if(studentCases.length===0) continue; 
+                const rows=[]; 
+                rows.push({类型:'学生基本信息',姓名:student.name,年龄:student.age,性别:student.gender,班级:student.className,班主任:student.homeroomTeacher}); 
+                for(let c of studentCases){ 
+                    rows.push({类型:'危机档案',危机等级:c.crisisLevel,当前状态:c.currentStatus,识别事件:c.crisisEvent,诱发情境:c.triggerSituation,养育者:c.primaryCarer,教养方式:c.parentingStyle,建档时间:new Date(c.createdAt).toLocaleString(),班级表现:c.classPerformance}); 
+                    const intervRecords=interventions.filter(i=>i.caseId===c.id).sort((a,b)=>new Date(a.date)-new Date(b.date)); 
+                    for(let i of intervRecords){ 
+                        let row={类型:'干预记录',日期:new Date(i.date).toLocaleString(),干预类型:i.type,干预内容:i.content}; 
+                        if(i.extra){ row['PHQ-9总分']=i.extra.phq9Total; row['是否服药']=i.extra.medication?'是':'否'; row['综合评分(1-10)']=i.extra.teacherScore; row['辅导记录']=i.extra.counselingRecord; } 
+                        rows.push(row); 
+                    } 
+                    const medRecords=medicalRecords.filter(m=>m.caseId===c.id).sort((a,b)=>new Date(a.visitDate)-new Date(b.visitDate)); 
+                    for(let m of medRecords) rows.push({类型:'就诊记录',就诊时间:new Date(m.visitDate).toLocaleString(),下次复诊:m.nextVisitDate?new Date(m.nextVisitDate).toLocaleString():''}); 
+                } 
+                const ws=XLSX.utils.json_to_sheet(rows); 
+                XLSX.utils.book_append_sheet(wb,ws,student.name.slice(0,31)); 
+            } 
+            XLSX.writeFile(wb,`危机干预每位学生详细报告_${new Date().toISOString().slice(0,19)}.xlsx`); 
+            addLog('导出数据','每位学生独立工作表'); 
+        }
+
+        function renderLogs(){ let div=document.getElementById('logList'); div.innerHTML=operationLogs.slice(0,100).map(l=>`<li class="border-b py-1"><span class="text-gray-500">${new Date(l.timestamp).toLocaleString()}</span> [${l.action}] ${l.detail}</li>`).join(''); }
+        function renderAll(){ renderStats(); renderStudents(); renderCases(); refreshInterveneSelect(); renderMedicalSelect(); renderAnalysisSelect(); renderLogs(); }
+
+        function initMainEvents() {
+            document.querySelectorAll('.tab-btn').forEach(btn=>btn.addEventListener('click',()=>{ let id=btn.dataset.tab; document.querySelectorAll('.tab-pane').forEach(p=>p.classList.add('hidden')); document.getElementById(id).classList.remove('hidden'); if(id==='interveneTab') loadInterventionAndChart(); }));
+            document.getElementById('addStudentBtn').onclick = () => openStudentModal();
+            document.getElementById('newCaseBtn').onclick = () => openCaseModal();
+            document.getElementById('addInterventionBtn').onclick = addInterventionHandler;
+            document.getElementById('interveneStudentSelect').onchange = () => { currentStudentId = parseInt(document.getElementById('interveneStudentSelect').value); loadInterventionAndChart(); };
+            document.getElementById('medicalCaseSelect').onchange = (e) => renderMedicalDetail(parseInt(e.target.value));
+            document.getElementById('addMedicalRecordBtn').onclick = addMedicalRecord;
+            document.getElementById('showReminderListBtn').onclick = showReminderList;
+            document.getElementById('exportExcelBtn').onclick = exportFullExcel;
+            document.getElementById('refreshBtn').onclick = () => { renderAll(); addLog('手动刷新','同步'); };
+            document.getElementById('clearLogsBtn').onclick = () => { operationLogs = []; persistAll(); renderLogs(); addLog('清空日志','已清空'); };
+            document.getElementById('chartTotalBtn').onclick = () => { currentChartMode='total'; updateChartDisplay(); };
+            document.getElementById('chartItemBtn').onclick = () => { currentChartMode='item'; updateChartDisplay(); };
+            document.getElementById('chartRadarBtn').onclick = () => { currentChartMode='radar'; updateChartDisplay(); };
+            document.getElementById('chartTeacherScoreBtn').onclick = () => { currentChartMode='teacherScore'; updateChartDisplay(); };
+            window.addEventListener('click', (e) => { if(e.target === document.getElementById('studentListModal')) document.getElementById('studentListModal').classList.add('hidden'); });
+        }
+
+        // 启动主系统（登录成功后调用）
+        function startMainApp() {
+            document.getElementById('mainApp').classList.remove('hidden');
+            document.getElementById('loginContainer').classList.add('hidden');
+            document.getElementById('logoutBtn').classList.remove('hidden');
+            loadData();
+            renderAll();
+            initMainEvents();
+            addLog('系统启动', `用户 ${currentUser} 登录系统，已恢复结案按钮，支持多次干预及就诊记录`);
+        }
+
+        // 登录逻辑
+        initUsers();
+        document.getElementById('loginBtn').addEventListener('click', () => {
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errDiv = document.getElementById('loginErrorMsg');
+            if (!username || !password) { errDiv.innerText = '请输入账号和密码'; errDiv.classList.remove('hidden'); return; }
+            if (login(username, password)) {
+                startMainApp();
+            } else {
+                errDiv.innerText = '账号或密码错误'; errDiv.classList.remove('hidden');
+            }
+        });
+        document.getElementById('showRegisterBtn').onclick = () => document.getElementById('registerModal').classList.remove('hidden');
+        document.getElementById('closeRegisterBtn').onclick = () => document.getElementById('registerModal').classList.add('hidden');
+        document.getElementById('confirmRegisterBtn').onclick = () => {
+            const username = document.getElementById('regUsername').value.trim();
+            const pwd = document.getElementById('regPassword').value;
+            const confirm = document.getElementById('regConfirm').value;
+            const err = document.getElementById('regError');
+            if (!username || !pwd) { err.innerText = '请完整填写'; err.classList.remove('hidden'); return; }
+            if (pwd !== confirm) { err.innerText = '两次密码不一致'; err.classList.remove('hidden'); return; }
+            if (registerUser(username, pwd)) {
+                alert('注册成功，请登录');
+                document.getElementById('registerModal').classList.add('hidden');
+                err.classList.add('hidden');
+            } else {
+                err.innerText = '用户名已存在'; err.classList.remove('hidden');
+            }
+        };
+        document.getElementById('showChangePwdBtn').onclick = () => document.getElementById('changePwdModal').classList.remove('hidden');
+        document.getElementById('closeChangePwdBtn').onclick = () => document.getElementById('changePwdModal').classList.add('hidden');
+        document.getElementById('confirmChangePwdBtn').onclick = () => {
+            const username = document.getElementById('chgUsername').value.trim();
+            const oldPwd = document.getElementById('chgOldPwd').value;
+            const newPwd = document.getElementById('chgNewPwd').value;
+            const confirmPwd = document.getElementById('chgConfirmPwd').value;
+            const err = document.getElementById('chgError');
+            if (!username || !oldPwd || !newPwd) { err.innerText = '请填写完整'; err.classList.remove('hidden'); return; }
+            if (newPwd !== confirmPwd) { err.innerText = '新密码两次不一致'; err.classList.remove('hidden'); return; }
+            if (changePassword(username, oldPwd, newPwd)) {
+                alert('密码修改成功，请重新登录');
+                document.getElementById('changePwdModal').classList.add('hidden');
+                if (currentUser && username === currentUser) logout();
+                err.classList.add('hidden');
+            } else {
+                err.innerText = '原账号密码错误'; err.classList.remove('hidden');
+            }
+        };
+        window.logout = logout;
+        document.getElementById('loginPassword').addEventListener('keypress', (e) => { if(e.key === 'Enter') document.getElementById('loginBtn').click(); });
+        document.getElementById('loginUsername').addEventListener('keypress', (e) => { if(e.key === 'Enter') document.getElementById('loginBtn').click(); });
+
+        // 确保模态框存在
+        if (!document.getElementById('studentModal')) {
+            const modalDiv = document.createElement('div');
+            modalDiv.id = 'studentModal';
+            modalDiv.className = 'hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4';
+            modalDiv.innerHTML = `<div class="bg-white rounded-2xl max-w-md w-full p-6"><h3 id="studentModalTitle" class="text-lg font-bold mb-3">学生信息</h3><div id="studentFormFields"></div><div class="flex justify-end gap-2 mt-5"><button id="closeStudentModal" class="px-4 py-2 border rounded-xl">取消</button><button id="saveStudentBtn" class="btn-primary text-white px-4 py-2 rounded-xl">保存</button></div></div>`;
+            document.body.appendChild(modalDiv);
+        }
+        if (!document.getElementById('caseModal')) {
+            const caseDiv = document.createElement('div');
+            caseDiv.id = 'caseModal';
+            caseDiv.className = 'hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-auto';
+            caseDiv.innerHTML = `<div class="bg-white rounded-2xl max-w-2xl w-full p-6"><h3 class="text-lg font-bold mb-3">危机个案档案</h3><div id="caseFormContainer"></div><div class="flex justify-end gap-2 mt-5"><button id="closeCaseModal" class="px-4 py-2 border rounded-xl">取消</button><button id="saveCaseBtn" class="btn-primary text-white px-4 py-2 rounded-xl">保存档案</button></div></div>`;
+            document.body.appendChild(caseDiv);
+        }
+        if (!document.getElementById('interventionModal')) {
+            const intervDiv = document.createElement('div');
+            intervDiv.id = 'interventionModal';
+            intervDiv.className = 'hidden fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-auto';
+            intervDiv.innerHTML = `<div class="bg-white rounded-2xl max-w-3xl w-full p-6"><h3 class="font-bold mb-2 text-slate-800">记录干预过程</h3><div id="interventionForm"></div><div class="flex justify-end gap-2 mt-4"><button id="closeInterventionModal" class="border border-slate-200 px-4 py-2 rounded-xl">取消</button><button id="saveInterventionBtn" class="btn-primary text-white px-4 py-2 rounded-xl">保存干预</button></div></div>`;
+            document.body.appendChild(intervDiv);
+        }
+    </script>
 </body>
 </html>
